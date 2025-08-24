@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Daily Tracker</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root {--primary:#4CAF50;--bg:#121212;--card-bg:#1e1e1e;--text:#fff;--subtle:#bbb;}
+body{font-family:'Inter',sans-serif;background:var(--bg);color:var(--text);margin:0;padding:1em;max-width:500px;margin:auto;}
+h2,h3{text-align:center;color:var(--primary);}
+.card{background:var(--card-bg);border-radius:12px;box-shadow:0 4px 10px rgba(0,0,0,0.3);padding:20px;margin-bottom:20px;}
+label{display:block;margin:12px 0 4px;font-weight:600;}
+input[type="date"],input[type="number"],input[type="text"]{width:100%;padding:8px;background:#2a2a2a;color:var(--text);border:1px solid #444;border-radius:6px;font-size:16px;}
+.checkbox-group{display:flex;flex-direction:column;margin-top:10px;}
+.checkbox-group label{display:flex;align-items:center;font-weight:normal;color:var(--subtle);}
+.checkbox-group input[type="checkbox"]{appearance:none;width:20px;height:20px;border:2px solid var(--primary);border-radius:4px;margin-right:10px;background:#1c1c1c;position:relative;}
+.checkbox-group input[type="checkbox"]:checked{background-color:var(--primary);}
+.checkbox-group input[type="checkbox"]:checked::after{content:'✔';position:absolute;left:4px;top:-2px;color:white;font-size:14px;}
+button{width:100%;padding:12px;font-size:16px;background:var(--primary);color:white;border:none;border-radius:8px;margin-top:20px;cursor:pointer;transition:background 0.3s ease;}
+button:hover{background:#45a049;}
+.readonly{background:#2c2c2c;padding:15px;border-radius:8px;font-size:15px;line-height:1.5;color:var(--subtle);}
+.message{text-align:center;margin-top:10px;color:var(--primary);font-weight:600;}
+</style>
+</head>
+<body>
+<h2>Daily Tracker</h2>
+
+<div class="card">
+<form id="tracker-form">
+<label for="user-name">Your Name</label>
+<input type="text" id="user-name" disabled>
+
+<label for="entry-date">Date</label>
+<input type="date" id="entry-date" required>
+
+<div class="checkbox-group">
+<label><input type="checkbox" value="workout" name="activity"> Workout</label>
+<label><input type="checkbox" value="walk" name="activity"> Walk</label>
+<label><input type="checkbox" value="meditation" name="activity"> Meditation</label>
+</div>
+
+<label for="user-weight">Your Weight (kg)</label>
+<input type="number" step="0.1" id="user-weight" required>
+
+<button type="submit">Save Entry</button>
+<div id="status-message" class="message"></div>
+</form>
+</div>
+
+<div class="card">
+<h3>View Entries</h3>
+<input type="date" id="view-date">
+<button id="load-entries">Load Entries</button>
+<div id="entries" class="readonly" style="margin-top:1em;"></div>
+</div>
+
+<!-- Firebase SDK -->
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-app.js";
+import { getFirestore, collection, doc, setDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-firestore.js";
+
+// 🔹 Replace with your Firebase config
+  const firebaseConfig = {
+    apiKey: "AIzaSyDR6f8pd9fcVaOPoqtGHvmqNyUOzyXjtDw",
+    authDomain: "daily-tracker-cf178.firebaseapp.com",
+    projectId: "daily-tracker-cf178",
+    storageBucket: "daily-tracker-cf178.firebasestorage.app",
+    messagingSenderId: "680604619558",
+    appId: "1:680604619558:web:2055aeb89f026ac3d7e7e7"
+  };
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+
+// Get username from URL path, e.g., xyz.com/hardik
+const pathParts = window.location.pathname.split('/').filter(p => p);
+let username = pathParts[0] || 'unknown';
+
+// Remove .html if it exists
+if (username.endsWith('.html')) {
+  username = username.replace('.html', '');
+}
+
+document.getElementById('user-name').value = username;
+document.getElementById('user-name').disabled = true;
+
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('entry-date').value = today;
+document.getElementById('view-date').value = today;
+
+const form = document.getElementById('tracker-form');
+const statusMsg = document.getElementById('status-message');
+const entriesDiv = document.getElementById('entries');
+
+// Save entry
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  statusMsg.textContent = 'Saving...';
+
+  const activities = { workout: false, walk: false, meditation: false };
+  document.querySelectorAll('input[name="activity"]:checked').forEach(cb => {
+    activities[cb.value] = true;
+  });
+
+  const data = {
+    user: username,
+    date: document.getElementById('entry-date').value,
+    activities,
+    weight: parseFloat(document.getElementById('user-weight').value)
+  };
+
+  try {
+    const docRef = doc(collection(db, "daily_tracker"), `${data.date}_${data.user}`);
+    await setDoc(docRef, data);
+    statusMsg.textContent = '✅ Entry Saved!';
+    form.reset();
+    document.getElementById('entry-date').value = today;
+    loadEntries();
+  } catch (err) {
+    statusMsg.textContent = '❌ Error: ' + err.message;
+  }
+});
+
+// Load all entries for selected date
+async function loadEntries() {
+  const date = document.getElementById('view-date').value;
+  entriesDiv.innerHTML = 'Loading...';
+
+  try {
+    const q = query(collection(db, "daily_tracker"), where("date", "==", date));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      entriesDiv.innerHTML = 'No entries for this date.';
+      return;
+    }
+
+    let html = '';
+    querySnapshot.forEach(doc => {
+      const data = doc.data();
+      html += `<strong>${data.user}</strong><br>
+      Workout: ${data.activities.workout ? '✅' : '❌'}<br>
+      Walk: ${data.activities.walk ? '✅' : '❌'}<br>
+      Meditation: ${data.activities.meditation ? '✅' : '❌'}<br>
+      Weight: ${data.weight} kg<br><br>`;
+    });
+
+    entriesDiv.innerHTML = html;
+  } catch (err) {
+    entriesDiv.innerHTML = '❌ Error: ' + err.message;
+  }
+}
+
+document.getElementById('load-entries').addEventListener('click', loadEntries);
+loadEntries();
+</script>
+</body>
+</html>
