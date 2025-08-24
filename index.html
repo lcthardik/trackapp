@@ -44,9 +44,10 @@
     }
 
     input[type="date"],
-    input[type="number"] {
+    input[type="number"],
+    input[type="text"] {
       width: 100%;
-      padding: 10px;
+      padding: 4px;
       background: #2a2a2a;
       color: var(--text);
       border: 1px solid #444;
@@ -121,6 +122,13 @@
       color: var(--subtle);
     }
 
+    .message {
+      text-align: center;
+      margin-top: 10px;
+      color: var(--primary);
+      font-weight: 600;
+    }
+
     @keyframes fadeIn {
       from { opacity: 0; transform: translateY(20px); }
       to { opacity: 1; transform: translateY(0); }
@@ -132,6 +140,9 @@
 
   <div class="card">
     <form id="tracker-form">
+      <label for="user-name">Your Name</label>
+      <input type="text" id="user-name" placeholder="Enter your name" required>
+
       <label for="entry-date">Date</label>
       <input type="date" id="entry-date" required>
 
@@ -145,6 +156,7 @@
       <input type="number" step="0.1" id="user-weight" required>
 
       <button type="submit">Save Entry</button>
+      <div id="status-message" class="message"></div>
     </form>
   </div>
 
@@ -156,18 +168,17 @@
   </div>
 
   <script>
-    const scriptURL = 'YOUR_GOOGLE_SCRIPT_WEBAPP_URL'; // Replace with your real URL
-    const username = window.location.pathname.replace('/', '') || 'unknown';
-    document.getElementById("header-name").textContent = `Tracker for ${username}`;
-
+    const scriptURL = 'https://script.google.com/macros/s/AKfycbzBdzazpwDpia4vCTwy7ja8hOl8epcZ24JqAPm26z9_tMDnNa6_5BFffZn_3Sthh_QYDw/exec'; // Replace with your actual Google Apps Script Web App URL
     const today = new Date().toISOString().split('T')[0];
     document.getElementById('entry-date').value = today;
     document.getElementById('view-date').value = today;
 
     const form = document.getElementById('tracker-form');
+    const statusMsg = document.getElementById('status-message');
 
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
+      statusMsg.textContent = 'Saving...';
 
       const activities = {
         workout: false,
@@ -181,45 +192,52 @@
 
       const data = {
         date: document.getElementById('entry-date').value,
-        user: username,
+        user: document.getElementById('user-name').value.trim(),
         activities,
         weight: parseFloat(document.getElementById('user-weight').value)
       };
 
-      await fetch(scriptURL, {
-        method: 'POST',
-        body: JSON.stringify(data)
-      });
+      try {
+        const res = await fetch(scriptURL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        });
 
-      alert('Saved!');
-      form.reset();
-      fetchEntries(); // refresh view
+        if (!res.ok) throw new Error('Failed to save');
+        statusMsg.textContent = '✅ Entry Saved!';
+        form.reset();
+        document.getElementById('entry-date').value = today;
+        fetchEntries();
+      } catch (err) {
+        statusMsg.textContent = '❌ Error: ' + err.message;
+      }
     });
 
     async function fetchEntries() {
       const date = document.getElementById('view-date').value;
-      const res = await fetch(`${scriptURL}?date=${date}`);
-      const data = await res.json();
+      try {
+        const res = await fetch(`${scriptURL}?date=${date}`);
+        if (!res.ok) throw new Error('Failed to fetch entries');
+        const data = await res.json();
 
-      const users = ['yourusername1', 'yourusername2']; // Replace with your usernames
-      let html = '';
-
-      users.forEach(user => {
-        if (data[user]) {
+        let html = '';
+        Object.keys(data).forEach(user => {
           html += `<strong>${user}</strong><br>`;
-          html += `Workout: ${data[user].workout}<br>`;
-          html += `Walk: ${data[user].walk}<br>`;
-          html += `Meditation: ${data[user].meditation}<br>`;
+          html += `Workout: ${data[user].workout ? '✅' : '❌'}<br>`;
+          html += `Walk: ${data[user].walk ? '✅' : '❌'}<br>`;
+          html += `Meditation: ${data[user].meditation ? '✅' : '❌'}<br>`;
           html += `Weight: ${data[user].weight} kg<br><br>`;
-        } else {
-          html += `<strong>${user}</strong>: No entry<br><br>`;
-        }
-      });
+        });
 
-      document.getElementById('entries').innerHTML = html;
+        if (!html) html = 'No entries for this date.';
+        document.getElementById('entries').innerHTML = html;
+      } catch (err) {
+        document.getElementById('entries').innerHTML = '❌ Error: ' + err.message;
+      }
     }
 
-    fetchEntries(); // auto-load on page load
+    fetchEntries(); // auto-load
   </script>
 </body>
 </html>
