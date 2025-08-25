@@ -18,7 +18,7 @@ input[type="date"],input[type="number"],input[type="text"]{width:100%;padding:4p
 .checkbox-group input[type="checkbox"]:checked::after{content:'✔';position:absolute;left:4px;top:-2px;color:white;font-size:14px;}
 button{width:100%;padding:12px;font-size:16px;background:var(--primary);color:white;border:none;border-radius:8px;margin-top:20px;cursor:pointer;transition:background 0.3s ease;}
 button:hover{background:#45a049;}
-.readonly{background:#2c2c2c;padding:15px;border-radius:8px;font-size:15px;line-height:1.5;color:var(--subtle);}
+.readonly{background:#2c2c2c;padding:15px;border-radius:8px;font-size:15px;line-height:1.5;color:var(--subtle);white-space:pre-line;}
 .message{text-align:center;margin-top:10px;color:var(--primary);font-weight:600;}
 </style>
 </head>
@@ -34,9 +34,13 @@ button:hover{background:#45a049;}
 <input type="date" id="entry-date" required>
 
 <div class="checkbox-group">
-<label><input type="checkbox" value="workout" name="activity"> Workout</label>
-<label><input type="checkbox" value="walk" name="activity"> Walk</label>
-<label><input type="checkbox" value="meditation" name="activity"> Meditation</label>
+  <label><input type="checkbox" value="brush" name="activity"> Brush</label>
+  <label><input type="checkbox" value="mouthwash" name="activity"> Mouth Wash</label>
+  <label><input type="checkbox" value="shower" name="activity"> Shower</label>
+  <label><input type="checkbox" value="exercise" name="activity"> Walk/Exercise</label>
+  <label><input type="checkbox" value="nojunkfood" name="activity"> No Junk Food</label>
+  <label><input type="checkbox" value="flaxseeds" name="activity"> Flax Seeds</label>
+  <label><input type="checkbox" value="intermittentfasting" name="activity"> Intermittent Fasting</label>
 </div>
 
 <label for="user-weight">Your Weight (kg)</label>
@@ -60,14 +64,14 @@ import { initializeApp } from "https://www.gstatic.com/firebasejs/10.3.1/firebas
 import { getFirestore, collection, doc, setDoc, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.3.1/firebase-firestore.js";
 
 // 🔹 Replace with your Firebase config
-  const firebaseConfig = {
+const firebaseConfig = {
     apiKey: "AIzaSyDR6f8pd9fcVaOPoqtGHvmqNyUOzyXjtDw",
     authDomain: "daily-tracker-cf178.firebaseapp.com",
     projectId: "daily-tracker-cf178",
     storageBucket: "daily-tracker-cf178.firebasestorage.app",
     messagingSenderId: "680604619558",
     appId: "1:680604619558:web:2055aeb89f026ac3d7e7e7"
-  };
+};
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
@@ -84,7 +88,8 @@ if (username.endsWith('.html')) {
 document.getElementById('user-name').value = username;
 document.getElementById('user-name').disabled = true;
 
-const today = new Date().toISOString().split('T')[0];
+const now = new Date();
+const today = now.toLocaleDateString('en-CA'); // format YYYY-MM-DD
 document.getElementById('entry-date').value = today;
 document.getElementById('view-date').value = today;
 
@@ -97,7 +102,16 @@ form.addEventListener('submit', async (e) => {
   e.preventDefault();
   statusMsg.textContent = 'Saving...';
 
-  const activities = { workout: false, walk: false, meditation: false };
+  const activities = {
+    brush: false,
+    mouthwash: false,
+    shower: false,
+    exercise: false,
+    nojunkfood: false,
+    flaxseeds: false,
+    intermittentfasting: false
+  };
+
   document.querySelectorAll('input[name="activity"]:checked').forEach(cb => {
     activities[cb.value] = true;
   });
@@ -139,9 +153,13 @@ async function loadEntries() {
     querySnapshot.forEach(doc => {
       const data = doc.data();
       html += `<strong>${data.user}</strong><br>
-      Workout: ${data.activities.workout ? '✅' : '❌'}<br>
-      Walk: ${data.activities.walk ? '✅' : '❌'}<br>
-      Meditation: ${data.activities.meditation ? '✅' : '❌'}<br>
+      Brush: ${data.activities.brush ? '✅' : '❌'}<br>
+      Mouth Wash: ${data.activities.mouthwash ? '✅' : '❌'}<br>
+      Shower: ${data.activities.shower ? '✅' : '❌'}<br>
+      Walk/Exercise: ${data.activities.exercise ? '✅' : '❌'}<br>
+      No Junk Food: ${data.activities.nojunkfood ? '✅' : '❌'}<br>
+      Flax Seeds: ${data.activities.flaxseeds ? '✅' : '❌'}<br>
+      Intermittent Fasting: ${data.activities.intermittentfasting ? '✅' : '❌'}<br>
       Weight: ${data.weight} kg<br><br>`;
     });
 
