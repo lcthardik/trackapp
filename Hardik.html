@@ -78,7 +78,7 @@ const db = getFirestore(app);
 
 // Get username from URL path, e.g., xyz.com/hardik
 const pathParts = window.location.pathname.split('/').filter(p => p);
-let username = pathParts[0] || 'unknown';
+let username = pathParts[1] || 'unknown';
 
 // Remove .html if it exists
 if (username.endsWith('.html')) {
